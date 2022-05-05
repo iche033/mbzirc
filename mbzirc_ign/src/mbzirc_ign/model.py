@@ -272,7 +272,7 @@ class Model:
             if self.hasValidGripper():
                 command.append(f'gripper={self.gripper}')
 
-        if self.model_type in USVS:
+        if self.model_type in USVS or self.model_type == 'static_arm':
             command.append(f'wavefieldSize={self.wavefield_size}')
 
             # run erb for arm to attach the user specified gripper
@@ -318,6 +318,7 @@ class Model:
                 f.write(str_output)
             # print(gripper_command, str_output)
 
+
         command.append(template_file)
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE,
@@ -334,7 +335,6 @@ class Model:
         stdout = process.communicate()[0]
         model_sdf = codecs.getdecoder('unicode_escape')(stdout)[0]
         print(command)
-        # print(model_sdf)
 
         return command, model_sdf
 
