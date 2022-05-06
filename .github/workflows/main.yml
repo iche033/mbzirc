@@ -8,15 +8,17 @@ jobs:
   build_docker_image:
     runs-on: ubuntu-latest
     env:
-      registry: osrf/mbzirc
+      registry: iche033/mbzirc_test
     strategy:
       matrix:
-        image_name: ['mbzirc_sim']
+        image_name_sim: ['mbzirc_sim']
+        image_name_model: ['mbzirc_models']
+        image_name_cloud: ['cloudsim_sim']
     steps:
       - name: Safety check for uploads of forks
         run: |
-          if [ "${{ env.registry  }}" == "osrf/mbzirc" ] && \
-             [ "${{ github.repository }}" != "osrf/mbzirc" ]; then \
+          if [ "${{ env.registry  }}" == "iche033/mbzirc_test" ] && \
+             [ "${{ github.repository }}" != "iche033/mbzirc" ]; then \
              exit -1; \
           fi
       - name: Checkout sources
@@ -25,21 +27,21 @@ jobs:
       - name: Install docker
         uses: docker-practice/actions-setup-docker@master
 
-      - name: Run build script
-        id: build_docker
+      - name: Run build script for models
+        id: build_docker_models
         run: |
-            bash -xe ./docker/build.bash ${{ matrix.image_name }}
-            echo "::set-output name=name::${{ matrix.image_name }}:latest"
+            bash -xe ./docker/build.bash ${{ matrix.image_name_models }}
+            echo "::set-output name=name::${{ matrix.image_name_models }}:latest"
 
-      - name: Create latest version tag
-        id: latest_tag
+      - name: Create latest version tag for models
+        id: latest_tag_models
         run: |
-          echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name }}_latest"
+          echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_models }}_latest"
 
-      - name: Create dated version tag
-        id: timestamp_tag
+      - name: Create dated version tag for models
+        id: timestamp_tag_models
         run: |
-          echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name }}_$(date +'%F_%H%M')"
+          echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_models }}_$(date +'%F_%H%M')"
 
       # Login leaves the token without encription. Works are under
       # https://github.com/docker/login-action/issues/30. Solution seems to
@@ -52,20 +54,48 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Tag docker images for latest and dated images in dockerhub
+      - name: Tag models docker images for latest and dated images in dockerhub
         if: success()
         run: |
-          docker tag ${{ steps.build_docker.outputs.name }} \
-            ${{ steps.latest_tag.outputs.name }}
-          docker tag ${{ steps.build_docker.outputs.name }} \
-            ${{ steps.timestamp_tag.outputs.name }}
+          docker tag ${{ steps.build_docker_models.outputs.name }} \
+            ${{ steps.latest_tag_models.outputs.name }}
+          docker tag ${{ steps.build_docker_models.outputs.name }} \
+            ${{ steps.timestamp_tag_models.outputs.name }}
 
-      - name: Push to docker latest
+      - name: Push models to docker latest
         if: success()
         run: |
-          docker push ${{ steps.latest_tag.outputs.name }}
+          docker push ${{ steps.latest_tag_models.outputs.name }}
 
-      - name: Push to docker timestamped version
+      - name: Push models to docker timestamped version
         if: success()
         run: |
-          docker push ${{ steps.timestamp_tag.outputs.name }}
+          docker push ${{ steps.timestamp_tag_models.outputs.name }}
+
+      - name: Run build script for sim
+        id: build_docker_sim
+        run: |
+            bash -xe ./docker/build.bash ${{ matrix.image_name_sim}}
+            echo "::set-output name=name::${{ matrix.image_name_sim}}:latest"
+
+      - name: Create latest version tag for sim
+        id: latest_tag_sim
+        run: |
+          echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_sim}}_latest"
+
+      - name: Create dated version tag for sim
+        id: timestamp_tags_sim
+        run: |
+          echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_sim }}_$(date +'%F_%H%M')"
+
+      - name: Push sim to docker latest
+        if: success()
+        run: |
+          docker push ${{ steps.latest_tag_sim.outputs.name }}
+
+      - name: Push sim to docker timestamped version
+        if: success()
+        run: |
+          docker push ${{ steps.timestamp_tag_sim.outputs.name }}
+
+
