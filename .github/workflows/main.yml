@@ -8,16 +8,16 @@ jobs:
   build_docker_image:
     runs-on: ubuntu-latest
     env:
-      registry: iche033/mbzirc_test
+      registry: iche033/mbzirc
     strategy:
       matrix:
         image_name_sim: ['mbzirc_sim']
-        image_name_model: ['mbzirc_models']
+        image_name_models: ['mbzirc_models']
         image_name_cloud: ['cloudsim_sim']
     steps:
       - name: Safety check for uploads of forks
         run: |
-          if [ "${{ env.registry  }}" == "iche033/mbzirc_test" ] && \
+          if [ "${{ env.registry  }}" == "iche033/mbzirc" ] && \
              [ "${{ github.repository }}" != "iche033/mbzirc" ]; then \
              exit -1; \
           fi
