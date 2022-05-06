@@ -1,5 +1,5 @@
 # Ubuntu 20.04 with nvidia-docker2 beta opengl support
-FROM mbzirc_models
+FROM iche033/mbzirc:mbzirc_models_latest
 
 USER root
 
