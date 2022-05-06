@@ -27,6 +27,7 @@ jobs:
       - name: Install docker
         uses: docker-practice/actions-setup-docker@master
 
+      # build mbzirc_models and push to dockerhub
       - name: Run build script for models
         id: build_docker_models
         run: |
@@ -72,6 +73,7 @@ jobs:
         run: |
           docker push ${{ steps.timestamp_tag_models.outputs.name }}
 
+      # build mbzirc_sim and push to dockerhub
       - name: Run build script for sim
         id: build_docker_sim
         run: |
@@ -88,6 +90,14 @@ jobs:
         run: |
           echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_sim }}_$(date +'%F_%H%M')"
 
+      - name: Tag sim docker images for latest and dated images in dockerhub
+        if: success()
+        run: |
+          docker tag ${{ steps.build_docker_sim.outputs.name }} \
+            ${{ steps.latest_tag_sim.outputs.name }}
+          docker tag ${{ steps.build_docker_sim.outputs.name }} \
+            ${{ steps.timestamp_tag_sim.outputs.name }}
+
       - name: Push sim to docker latest
         if: success()
         run: |
@@ -97,5 +107,3 @@ jobs:
         if: success()
         run: |
           docker push ${{ steps.timestamp_tag_sim.outputs.name }}
-
-
