@@ -87,7 +87,7 @@ jobs:
           echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_sim}}_latest"
 
       - name: Create dated version tag for sim
-        id: timestamp_tags_sim
+        id: timestamp_tag_sim
         run: |
           echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_sim }}_$(date +'%F_%H%M')"
 
@@ -122,7 +122,7 @@ jobs:
           echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_cloud_sim}}_latest"
 
       - name: Create dated version tag for sim
-        id: timestamp_tags_cloud_sim
+        id: timestamp_tag_cloud_sim
         run: |
           echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_cloud_sim}}_$(date +'%F_%H%M')"
 
@@ -157,7 +157,7 @@ jobs:
           echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_cloud_bridge}}_latest"
 
       - name: Create dated version tag for sim
-        id: timestamp_tags_cloud_bridge
+        id: timestamp_tag_cloud_bridge
         run: |
           echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_cloud_bridge}}_$(date +'%F_%H%M')"
 
