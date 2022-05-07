@@ -13,7 +13,8 @@ jobs:
       matrix:
         image_name_sim: ['mbzirc_sim']
         image_name_models: ['mbzirc_models']
-        image_name_cloud: ['cloudsim_sim', 'cloudsim_bridge']
+        image_name_cloud_sim_sim: ['cloudsim_sim']
+        image_name_cloud_sim_bridge: ['cloudsim_bridge']
     steps:
       - name: Safety check for uploads of forks
         run: |
@@ -108,37 +109,72 @@ jobs:
         run: |
           docker push ${{ steps.timestamp_tag_sim.outputs.name }}
 
-      # build cloudsim images and push to dockerhub
+      # build cloud sim image and push to dockerhub
       - name: Run build script for cloud
-        id: build_docker_cloud
+        id: build_docker_cloud_sim
         run: |
-            bash -xe ./docker/build.bash ${{ matrix.image_name_cloud}}
-            echo "::set-output name=name::${{ matrix.image_name_cloud}}:latest"
+            bash -xe ./docker/build.bash ${{ matrix.image_name_cloud_sim}}
+            echo "::set-output name=name::${{ matrix.image_name_cloud_sim}}:latest"
 
       - name: Create latest version tag for sim
-        id: latest_tag_cloud
+        id: latest_tag_cloud_sim
         run: |
-          echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_cloud}}_latest"
+          echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_cloud_sim}}_latest"
 
       - name: Create dated version tag for sim
-        id: timestamp_tags_cloud
+        id: timestamp_tags_cloud_sim
         run: |
-          echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_cloud}}_$(date +'%F_%H%M')"
+          echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_cloud_sim}}_$(date +'%F_%H%M')"
 
       - name: Tag sim docker images for latest and dated images in dockerhub
         if: success()
         run: |
-          docker tag ${{ steps.build_docker_cloud.outputs.name }} \
-            ${{ steps.latest_tag_cloud.outputs.name }}
-          docker tag ${{ steps.build_docker_cloud.outputs.name }} \
-            ${{ steps.timestamp_tag_cloud.outputs.name }}
+          docker tag ${{ steps.build_docker_cloud_sim.outputs.name }} \
+            ${{ steps.latest_tag_cloud_sim.outputs.name }}
+          docker tag ${{ steps.build_docker_cloud_sim.outputs.name }} \
+            ${{ steps.timestamp_tag_cloud_sim.outputs.name }}
 
-      - name: Push cloudsim_cloud to docker latest
+      - name: Push cloudsim_cloud_sim to docker latest
         if: success()
         run: |
-          docker push ${{ steps.latest_tag_cloud.outputs.name }}
+          docker push ${{ steps.latest_tag_cloud_sim.outputs.name }}
 
-      - name: Push cloudsim_cloud to docker timestamped version
+      - name: Push cloudsim_cloud_sim to docker timestamped version
+        if: success()
+        run: |
+          docker push ${{ steps.timestamp_tag_sim.outputs.name }}
+
+      # build cloud bridge image and push to dockerhub
+      - name: Run build script for cloud
+        id: build_docker_cloud_bridge
+        run: |
+            bash -xe ./docker/build.bash ${{ matrix.image_name_cloud_bridge}}
+            echo "::set-output name=name::${{ matrix.image_name_cloud_bridge}}:latest"
+
+      - name: Create latest version tag for sim
+        id: latest_tag_cloud_bridge
+        run: |
+          echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_cloud_bridge}}_latest"
+
+      - name: Create dated version tag for sim
+        id: timestamp_tags_cloud_bridge
+        run: |
+          echo "::set-output name=name::${{ env.registry }}:${{ matrix.image_name_cloud_bridge}}_$(date +'%F_%H%M')"
+
+      - name: Tag sim docker images for latest and dated images in dockerhub
+        if: success()
+        run: |
+          docker tag ${{ steps.build_docker_cloud_bridge.outputs.name }} \
+            ${{ steps.latest_tag_cloud_bridge.outputs.name }}
+          docker tag ${{ steps.build_docker_cloud_bridge.outputs.name }} \
+            ${{ steps.timestamp_tag_cloud_bridge.outputs.name }}
+
+      - name: Push cloudsim_cloud_bridge to docker latest
+        if: success()
+        run: |
+          docker push ${{ steps.latest_tag_cloud_bridge.outputs.name }}
+
+      - name: Push cloudsim_cloud_bridge to docker timestamped version
         if: success()
         run: |
           docker push ${{ steps.timestamp_tag_sim.outputs.name }}
