@@ -13,8 +13,8 @@ jobs:
       matrix:
         image_name_sim: ['mbzirc_sim']
         image_name_models: ['mbzirc_models']
-        image_name_cloud_sim_sim: ['cloudsim_sim']
-        image_name_cloud_sim_bridge: ['cloudsim_bridge']
+        image_name_cloud_sim: ['cloudsim_sim']
+        image_name_cloud_bridge: ['cloudsim_bridge']
     steps:
       - name: Safety check for uploads of forks
         run: |
