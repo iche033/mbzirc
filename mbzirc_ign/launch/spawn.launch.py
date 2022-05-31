@@ -23,9 +23,9 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.actions import PushRosNamespace
 
-from mbzirc_ign.model import Model
-
 import mbzirc_ign.bridges
+
+from mbzirc_ign.model import Model
 
 
 def spawn(context, model_type, world_name, model_name, position):
@@ -38,17 +38,29 @@ def spawn(context, model_type, world_name, model_name, position):
     slot1_payload = LaunchConfiguration('slot1').perform(context)
     slot2_payload = LaunchConfiguration('slot2').perform(context)
     slot3_payload = LaunchConfiguration('slot3').perform(context)
+    slot4_payload = LaunchConfiguration('slot4').perform(context)
+    slot5_payload = LaunchConfiguration('slot5').perform(context)
+    slot6_payload = LaunchConfiguration('slot6').perform(context)
+    slot7_payload = LaunchConfiguration('slot7').perform(context)
 
     slot0_rpy = LaunchConfiguration('slot0_rpy').perform(context)
     slot1_rpy = LaunchConfiguration('slot1_rpy').perform(context)
     slot2_rpy = LaunchConfiguration('slot2_rpy').perform(context)
     slot3_rpy = LaunchConfiguration('slot3_rpy').perform(context)
+    slot4_rpy = LaunchConfiguration('slot4_rpy').perform(context)
+    slot5_rpy = LaunchConfiguration('slot5_rpy').perform(context)
+    slot6_rpy = LaunchConfiguration('slot6_rpy').perform(context)
+    slot7_rpy = LaunchConfiguration('slot7_rpy').perform(context)
 
     payloads = {
         'slot0': {'sensor': slot0_payload, 'rpy': slot0_rpy},
         'slot1': {'sensor': slot1_payload, 'rpy': slot1_rpy},
         'slot2': {'sensor': slot2_payload, 'rpy': slot2_rpy},
         'slot3': {'sensor': slot3_payload, 'rpy': slot3_rpy},
+        'slot4': {'sensor': slot4_payload, 'rpy': slot4_rpy},
+        'slot5': {'sensor': slot5_payload, 'rpy': slot5_rpy},
+        'slot6': {'sensor': slot6_payload, 'rpy': slot6_rpy},
+        'slot7': {'sensor': slot7_payload, 'rpy': slot7_rpy},
     }
 
     gripper = LaunchConfiguration('gripper').perform(context)
@@ -56,23 +68,6 @@ def spawn(context, model_type, world_name, model_name, position):
     if model.isUAV():
         # take flight time in minutes
         flight_time = LaunchConfiguration('flightTime').perform(context)
-
-        slot4_payload = LaunchConfiguration('slot4').perform(context)
-        slot5_payload = LaunchConfiguration('slot5').perform(context)
-        slot6_payload = LaunchConfiguration('slot6').perform(context)
-        slot7_payload = LaunchConfiguration('slot7').perform(context)
-
-        slot4_rpy = LaunchConfiguration('slot4_rpy').perform(context)
-        slot5_rpy = LaunchConfiguration('slot5_rpy').perform(context)
-        slot6_rpy = LaunchConfiguration('slot6_rpy').perform(context)
-        slot7_rpy = LaunchConfiguration('slot7_rpy').perform(context)
-
-        payloads.update({
-            'slot4': {'sensor': slot4_payload, 'rpy': slot4_rpy},
-            'slot5': {'sensor': slot5_payload, 'rpy': slot5_rpy},
-            'slot6': {'sensor': slot6_payload, 'rpy': slot6_rpy},
-            'slot7': {'sensor': slot7_payload, 'rpy': slot7_rpy},
-        })
 
         model.set_flight_time(flight_time)
     elif model.isUSV():
@@ -82,11 +77,14 @@ def spawn(context, model_type, world_name, model_name, position):
         model.set_wavefield(world_name)
         model.set_arm(arm)
         model.set_arm_slot(arm_slot)
+    elif model_type == 'static_arm':
+        arm = LaunchConfiguration('arm').perform(context)
+        model.set_arm(arm)
 
     model.set_gripper(gripper)
     model.set_payload(payloads)
 
-    launch_proceses = []
+    launch_processes = []
     if sim_mode == 'full' or sim_mode == 'sim':
         ignition_spawn_entity = Node(
             package='ros_ign_gazebo',
@@ -94,16 +92,18 @@ def spawn(context, model_type, world_name, model_name, position):
             output='screen',
             arguments=model.spawn_args()
         )
-        launch_proceses.append(ignition_spawn_entity)
+        launch_processes.append(ignition_spawn_entity)
 
     bridges = []
     nodes = []
+    payload_launches = []
     if sim_mode == 'full' or sim_mode == 'bridge':
         bridges, nodes = model.bridges(world_name)
 
-        [payload_bridges, payload_nodes] = model.payload_bridges(world_name)
+        [payload_bridges, payload_nodes, payload_launches] = model.payload_bridges(world_name)
         bridges.extend(payload_bridges)
         nodes.extend(payload_nodes)
+        payload_launches.extend(payload_launches)
 
         if model.isFixedWingUAV():
             nodes.append(Node(
@@ -152,13 +152,15 @@ def spawn(context, model_type, world_name, model_name, position):
                     on_exit=[group_action],
                 )
             )
-            launch_proceses.append(handler)
+            launch_processes.append(handler)
         elif sim_mode == 'bridge':
-            launch_proceses.append(group_action)
+            launch_processes.append(group_action)
+
+        launch_processes.extend(payload_launches)
 
     if sim_mode == 'bridge' and bridge_competition_topics:
-        launch_proceses.extend(launch_competition_bridges())
-    return launch_proceses
+        launch_processes.extend(launch_competition_bridges())
+    return launch_processes
 
 
 def launch_competition_bridges():

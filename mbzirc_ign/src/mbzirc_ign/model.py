@@ -17,7 +17,10 @@ import os
 import subprocess
 
 from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import PackageNotFoundError
 
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 
 import mbzirc_ign.bridges
@@ -114,48 +117,49 @@ class Model:
                 mbzirc_ign.bridges.thrust_joint_pos(self.model_name, 'left'),
                 mbzirc_ign.bridges.thrust_joint_pos(self.model_name, 'right'),
             ])
-            if self.hasValidArm():
-                # arm joint states
+
+        if self.hasValidArm():
+            # arm joint states
+            bridges.append(
+                mbzirc_ign.bridges.arm_joint_states(world_name, self.model_name)
+            )
+
+            if self.arm == 'mbzirc_oberon7_arm':
+                # arm joint pos cmd
+                arm_joints = ['azimuth', 'shoulder', 'elbow', 'roll', 'pitch', 'wrist']
+                for joint in arm_joints:
+                    bridges.append(
+                        mbzirc_ign.bridges.arm_joint_pos(self.model_name, joint)
+                    )
+
+                camera_link = 'wrist_link'
+                camera_link_no_suffix = camera_link.rstrip('_link')
                 bridges.append(
-                    mbzirc_ign.bridges.arm_joint_states(world_name, self.model_name)
+                    mbzirc_ign.bridges.arm_image(world_name, self.model_name, camera_link)
                 )
-
-                if self.arm == 'mbzirc_oberon7_arm':
-                    # arm joint pos cmd
-                    arm_joints = ['azimuth', 'shoulder', 'elbow', 'roll', 'pitch', 'wrist']
-                    for joint in arm_joints:
-                        bridges.append(
-                            mbzirc_ign.bridges.arm_joint_pos(self.model_name, joint)
-                        )
-
-                    camera_link = 'wrist_link'
-                    camera_link_no_suffix = camera_link.rstrip('_link')
-                    bridges.append(
-                        mbzirc_ign.bridges.arm_image(world_name, self.model_name, camera_link)
+                bridges.append(
+                    mbzirc_ign.bridges.arm_camera_info(
+                        world_name, self.model_name, camera_link
                     )
-                    bridges.append(
-                        mbzirc_ign.bridges.arm_camera_info(
-                            world_name, self.model_name, camera_link
-                        )
-                    )
-                    bridges.append(
-                        mbzirc_ign.bridges.wrist_joint_force_torque(self.model_name),
-                    )
-                    nodes.append(Node(
-                        package='mbzirc_ros',
-                        executable='optical_frame_publisher',
-                        arguments=['1'],
-                        remappings=[('input/image', f'arm/{camera_link_no_suffix}/image_raw'),
-                                    ('output/image',
-                                    f'arm/{camera_link_no_suffix}/optical/image_raw'),
-                                    ('input/camera_info',
-                                    f'arm/{camera_link_no_suffix}/camera_info'),
-                                    ('output/camera_info',
-                                        f'arm/{camera_link_no_suffix}/optical/camera_info')]))
+                )
+                bridges.append(
+                    mbzirc_ign.bridges.wrist_joint_force_torque(self.model_name),
+                )
+                nodes.append(Node(
+                    package='mbzirc_ros',
+                    executable='optical_frame_publisher',
+                    arguments=['1'],
+                    remappings=[('input/image', f'arm/{camera_link_no_suffix}/image_raw'),
+                                ('output/image',
+                                f'arm/{camera_link_no_suffix}/optical/image_raw'),
+                                ('input/camera_info',
+                                f'arm/{camera_link_no_suffix}/camera_info'),
+                                ('output/camera_info',
+                                    f'arm/{camera_link_no_suffix}/optical/camera_info')]))
 
-                    # default to oberon7 gripper if not specified.
-                    if not self.gripper:
-                        self.gripper = 'mbzirc_oberon7_gripper'
+                # default to oberon7 gripper if not specified.
+                if not self.gripper:
+                    self.gripper = 'mbzirc_oberon7_gripper'
 
         if self.hasValidGripper():
             isAttachedToArm = self.isUSV()
@@ -180,12 +184,20 @@ class Model:
                 bridges.append(
                     mbzirc_ign.bridges.gripper_suction_control(self.model_name, isAttachedToArm)
                 )
+                bridges.extend([
+                    mbzirc_ign.bridges.gripper_contact(self.model_name, isAttachedToArm, 'center'),
+                    mbzirc_ign.bridges.gripper_contact(self.model_name, isAttachedToArm, 'left'),
+                    mbzirc_ign.bridges.gripper_contact(self.model_name, isAttachedToArm, 'right'),
+                    mbzirc_ign.bridges.gripper_contact(self.model_name, isAttachedToArm, 'top'),
+                    mbzirc_ign.bridges.gripper_contact(self.model_name, isAttachedToArm, 'bottom')
+                ])
 
         return [bridges, nodes]
 
     def payload_bridges(self, world_name, payloads=None):
         bridges = []
         nodes = []
+        payload_launches = []
 
         if not payloads:
             payloads = self.payload
@@ -193,35 +205,64 @@ class Model:
             p = payloads[k]
             if not p['sensor'] or p['sensor'] == 'None' or p['sensor'] == '':
                 continue
-            bridges.extend(
-                mbzirc_ign.payload_bridges.payload_bridges(
-                    world_name, self.model_name, p['sensor'], idx))
 
-            if p['sensor'] in ['mbzirc_vga_camera', 'mbzirc_hd_camera']:
-                nodes.append(Node(
-                    package='mbzirc_ros',
-                    executable='optical_frame_publisher',
-                    arguments=['1'],
-                    remappings=[('input/image', f'slot{idx}/image_raw'),
-                                ('output/image', f'slot{idx}/optical/image_raw'),
-                                ('input/camera_info', f'slot{idx}/camera_info'),
-                                ('output/camera_info', f'slot{idx}/optical/camera_info')]))
-            elif p['sensor'] in ['mbzirc_rgbd_camera']:
-                nodes.append(Node(
-                    package='mbzirc_ros',
-                    executable='optical_frame_publisher',
-                    arguments=['1'],
-                    remappings=[('input/image', f'slot{idx}/image_raw'),
-                                ('output/image', f'slot{idx}/optical/image_raw'),
-                                ('input/camera_info', f'slot{idx}/camera_info'),
-                                ('output/camera_info', f'slot{idx}/optical/camera_info')]))
-                nodes.append(Node(
-                    package='mbzirc_ros',
-                    executable='optical_frame_publisher',
-                    arguments=['1'],
-                    remappings=[('input/image', f'slot{idx}/depth'),
-                                ('output/image', f'slot{idx}/optical/depth')]))
-        return [bridges, nodes]
+            # check if it is a custom payload
+            if self.is_custom_payload(p['sensor']):
+                payload_launch = self.custom_payload_launch(world_name, self.model_name,
+                                                            p['sensor'], idx)
+                if payload_launch is not None:
+                    payload_launches.append(payload_launch)
+
+            # if not custom payload, add our own bridges and nodes
+            else:
+                bridges.extend(
+                    mbzirc_ign.payload_bridges.payload_bridges(
+                        world_name, self.model_name, p['sensor'], idx))
+
+                if p['sensor'] in mbzirc_ign.payload_bridges.camera_models():
+                    nodes.append(Node(
+                        package='mbzirc_ros',
+                        executable='optical_frame_publisher',
+                        arguments=['1'],
+                        remappings=[('input/image', f'slot{idx}/image_raw'),
+                                    ('output/image', f'slot{idx}/optical/image_raw'),
+                                    ('input/camera_info', f'slot{idx}/camera_info'),
+                                    ('output/camera_info', f'slot{idx}/optical/camera_info')]))
+                elif p['sensor'] in mbzirc_ign.payload_bridges.rgbd_models():
+                    nodes.append(Node(
+                        package='mbzirc_ros',
+                        executable='optical_frame_publisher',
+                        arguments=['1'],
+                        remappings=[('input/image', f'slot{idx}/image_raw'),
+                                    ('output/image', f'slot{idx}/optical/image_raw'),
+                                    ('input/camera_info', f'slot{idx}/camera_info'),
+                                    ('output/camera_info', f'slot{idx}/optical/camera_info')]))
+                    nodes.append(Node(
+                        package='mbzirc_ros',
+                        executable='optical_frame_publisher',
+                        arguments=['1'],
+                        remappings=[('input/image', f'slot{idx}/depth'),
+                                    ('output/image', f'slot{idx}/optical/depth')]))
+        return [bridges, nodes, payload_launches]
+
+    def is_custom_payload(self, payload):
+        try:
+            get_package_share_directory(payload)
+        except PackageNotFoundError:
+            return False
+        return True
+
+    def custom_payload_launch(self, world_name, model_name, payload, idx):
+        payload_launch = None
+        path = os.path.join(
+            get_package_share_directory(payload), 'launch')
+        if os.path.exists(path):
+            payload_launch = IncludeLaunchDescription(
+                PythonLaunchDescriptionSource([path, '/bridge.launch.py']),
+                launch_arguments={'world_name': world_name,
+                                  'model_name': model_name,
+                                  'slot_idx': str(idx)}.items())
+        return payload_launch
 
     def set_flight_time(self, flight_time):
         # UAV specific, sets flight time
@@ -276,7 +317,7 @@ class Model:
             if self.hasValidGripper():
                 command.append(f'gripper={self.gripper}')
 
-        if self.model_type in USVS:
+        if self.model_type in USVS or self.model_type == 'static_arm':
             command.append(f'wavefieldSize={self.wavefield_size}')
 
             # run erb for arm to attach the user specified gripper
@@ -339,7 +380,6 @@ class Model:
         stdout = process.communicate()[0]
         model_sdf = codecs.getdecoder('unicode_escape')(stdout)[0]
         print(command)
-        # print(model_sdf)
 
         return command, model_sdf
 
